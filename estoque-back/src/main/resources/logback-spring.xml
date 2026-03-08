@@ -3,7 +3,7 @@
     <property name="LOGS" value="/${LOG_PATH:-var/log/sistema-estoque/logs}"/>
     <property name="SERVICE_NAME" value="${SERVICE_NAME:-sistemaEstoque}"/>
     <property name="LOG_LEVEL" value="${LOG_LEVEL:-info}"/>
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} - %5p --- [%t] %-40.40logger{39} : %m [IP: %X{clientIp:-sistema}]%n"/>
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} - %5p --- [%t] %-40.40logger{39} : %m [IP: %X{clientIp}]%n"/>
 
     <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
