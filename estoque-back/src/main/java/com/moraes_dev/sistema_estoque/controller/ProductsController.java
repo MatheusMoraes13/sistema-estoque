@@ -1,7 +1,7 @@
 package com.moraes_dev.sistema_estoque.controller;
 
-import com.moraes_dev.sistema_estoque.DTO.CreateProdutcDTO;
-import com.moraes_dev.sistema_estoque.entity.ProductsEntity;
+import com.moraes_dev.sistema_estoque.DTO.CreateProductDTO;
+import com.moraes_dev.sistema_estoque.entity.ProductEntity;
 import com.moraes_dev.sistema_estoque.service.ProductsService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,13 +31,13 @@ public class ProductsController {
     }
 
     @PostMapping("/produtos")
-    public ResponseEntity<?> createProduct(@RequestBody CreateProdutcDTO produto){
+    public ResponseEntity<?> createProduct(@RequestBody CreateProductDTO produto){
         log.info("Solicitação para criar novo produto: {}", produto);
         return productsService.createProduct(produto);
     }
 
     @PutMapping("/produtos/{id}")
-    public ResponseEntity<?> updateProduct(@PathVariable long id, @RequestBody ProductsEntity product){
+    public ResponseEntity<?> updateProduct(@PathVariable long id, @RequestBody ProductEntity product){
         log.info("Solicitação para atualizar produto ID: {}", id);
         return productsService.updateProduct(id, product);
     }

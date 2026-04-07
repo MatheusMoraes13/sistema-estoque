@@ -1,16 +1,21 @@
 package com.moraes_dev.sistema_estoque.service;
 
-import com.moraes_dev.sistema_estoque.DTO.CreateProdutcDTO;
+import com.moraes_dev.sistema_estoque.DTO.CreateProductDTO;
 import com.moraes_dev.sistema_estoque.DTO.ProductsCsvDTO;
-import com.moraes_dev.sistema_estoque.entity.ProductsEntity;
+import com.moraes_dev.sistema_estoque.entity.ProductEntity;
 import com.moraes_dev.sistema_estoque.repository.ProductsRepository;
+import com.opencsv.exceptions.CsvException;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.crossstore.ChangeSetPersister;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.List;
@@ -22,54 +27,43 @@ import com.opencsv.CSVReaderBuilder;
 @Slf4j
 public class ProductsService {
 
-    ProductsRepository productsRepository;
+    private final ProductsRepository productsRepository;
 
-    public ResponseEntity<?> getAllProducts(){
-        try {
-            log.info("Retornando todos os produtos cadastrados na base de dados.");
-            return ResponseEntity.ok(productsRepository.findAll());
-        } catch (Exception e) {
-            log.error("Erro interno ao retornar os produtos cadastrados na plataforma.");
-            return ResponseEntity.internalServerError().body("Erro interno ao retornar os produtos cadastrados na plataforma.");
-        }
+    public Page<ProductEntity> getAllProducts(Pageable pageable) {
+        log.info("Retornando todos os produtos cadastrados na base de dados.");
+        return productsRepository.findAll(pageable);
     }
 
     @Transactional
-    public ResponseEntity<?> createProductsByCsv(MultipartFile productsCsv){
+    public void createProductsByCsv(MultipartFile productsCsv) throws IOException, CsvException {
         log.info("Realizando o cadastro dos produtos enviados via CSV.");
-        try (Reader reader = new InputStreamReader(productsCsv.getInputStream())) {
-            CSVReader csvReader = new CSVReaderBuilder(reader)
-                    .withSkipLines(1) // Pula o cabeçalho
-                    .build();
+        Reader reader = new InputStreamReader(productsCsv.getInputStream());
+        CSVReader csvReader = new CSVReaderBuilder(reader)
+                .withSkipLines(1)
+                .build();
 
-            List<String[]> rows = csvReader.readAll();
+        List<String[]> rows = csvReader.readAll();
 
-            for (String[] row : rows){
-                if (productsRepository.findByBarCode(row[12]) != null) {
-                    log.info("Produto já cadastrado na base de dados com o código de barras {}", row[12]);
-                    continue;
-                }
-
-                ProductsCsvDTO currentProduct = new ProductsCsvDTO(row[0],
-                        row[1], row[2], row[3],
-                        row[4], row[5], row[6],
-                        row[7], row[8], row[9],
-                        row[10], row[11], row[12]);
-                ProductsEntity produtoAtual = new ProductsEntity(currentProduct);
-                productsRepository.save(produtoAtual);
-                log.info("Produto {} cadastrado com sucesso na base de dados.", produtoAtual.getName());
+        for (String[] row : rows) {
+            if (productsRepository.findByBarCode(row[7]) != null) {
+                log.info("Produto já cadastrado na base de dados com o código de barras {}", row[7]);
+                continue;
             }
 
-            log.info("Produtos recebidos via CSV cadastrados com sucesso.");
-            return ResponseEntity.ok("Produtos recebidos via CSV cadastrados com sucesso.");
-        } catch (Exception e) {
-            log.error("Erro interno no servidor durante o cadastro dos produtos enviados via CSV.", e);
-            return ResponseEntity.internalServerError().body("Erro interno no servidor durante o cadastro dos produtos enviados via CSV.");
+            ProductsCsvDTO currentProduct = new ProductsCsvDTO(row[0],
+                    row[1], row[2], row[3],
+                    row[4], row[5], row[6],
+                    row[7]);
+            ProductEntity currentProductEntity = new ProductEntity(currentProduct);
+            productsRepository.save(currentProductEntity);
+            log.info("Produto {} cadastrado com sucesso na base de dados.", currentProductEntity.getName());
         }
+
+        log.info("Produtos recebidos via CSV e cadastrados com sucesso.");
     }
 
     @Transactional
-    public ResponseEntity<?> createProduct(CreateProdutcDTO product){
+    public ResponseEntity<?> createProduct(CreateProductDTO product){
         log.info("Realizando o cadastro do product {}.", product.name());
 
         try {
@@ -77,7 +71,7 @@ public class ProductsService {
                 log.info("Produto já cadastrado na base de dados com o código de barras {}", product.codeBar());
                 return ResponseEntity.badRequest().body("Produto já cadastrado para o código de barras " + product.codeBar());
             } else {
-                ProductsEntity productToSave = new ProductsEntity(product);
+                ProductEntity productToSave = new ProductEntity(product);
                 productsRepository.save(productToSave);
 
                 log.info("Produto {} cadastrado com sucesso no banco de dados.", product.name());
@@ -90,21 +84,20 @@ public class ProductsService {
     }
 
     @Transactional
-    public ResponseEntity<?> updateProduct(long id, ProductsEntity product){
+    public ProductEntity updateProduct(long id, ProductEntity product){
         log.info("Atualizando os dados do produto: {}.", product.getName());
-        try {
-            if (productsRepository.findById(product.getId()).isPresent()){
-                productsRepository.save(product);
+        ProductEntity foundProduct = productsRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.warn("Nenhum produto encontrado para o ID: ", id);
+                });
+        if (productsRepository.findById(product.getId()).isPresent()) {
+            productsRepository.save(product);
 
-                log.info("Produto {} atualizado com sucesso na base de dados.", product.getName());
-                return ResponseEntity.ok(product);
-            } else {
-                log.error("Nenhum produto com o id \"{}\" encontrado na base de dados.", product.getId());
-                return ResponseEntity.badRequest().body("Nenhum produto com o id \"" + product.getId() + "\" encontrado na base de dados");
-            }
-        } catch (RuntimeException e) {
-            log.error("Erro interno ao realizar a atualização das informações do produto \"{}\" na base de dados.", product.getName());
-            return ResponseEntity.internalServerError().body("Erro interno ao realizar a atualização das informações do produto " + product.getName() + " na base de dados.");
+            log.info("Produto {} atualizado com sucesso na base de dados.", product.getName());
+            return product;
+        } else {
+            log.error("Nenhum produto com o id \"{}\" encontrado na base de dados.", product.getId());
+            return ResponseEntity.badRequest().body("Nenhum produto com o id \"" + product.getId() + "\" encontrado na base de dados");
         }
     }
 
